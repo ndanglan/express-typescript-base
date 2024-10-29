@@ -14,4 +14,16 @@ export const env = cleanEnv(process.env, {
  CORS_ORIGIN: str({ devDefault: testOnly("http://localhost:3000") }),
  COMMON_RATE_LIMIT_MAX_REQUESTS: num({ devDefault: testOnly(1000) }),
  COMMON_RATE_LIMIT_WINDOW_MS: num({ devDefault: testOnly(1000) }),
+ S3_ACCESS_KEY_ID: str({ devDefault: testOnly("") }),
+ S3_SECRET_ACCESS_KEY: str({ devDefault: testOnly("") }),
+ S3_REGION: str({ devDefault: testOnly("") }),
+ HLS_TARGET_DURATION: str({
+  devDefault: testOnly("25"),
+ }),
+ HLS_PLAYLIST_LENGTH: str({
+  devDefault: testOnly("25"),
+ }),
+ HLS_MAX_FILES: str({
+  devDefault: testOnly("25"),
+ }),
 });
