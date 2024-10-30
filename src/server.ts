@@ -6,9 +6,8 @@ import path from "path";
 import { pino } from "pino";
 
 import { openAPIRouter } from "@/api-docs/openAPIRouter";
-import { healthCheckRouter } from "@/api/healthCheck/healthCheckRouter";
-import { streamRouter } from "@/api/stream/streamRouter";
-import { userRouter } from "@/api/user/userRouter";
+
+import { router } from "@/api";
 import errorHandler from "@/common/middleware/errorHandler";
 import rateLimiter from "@/common/middleware/rateLimiter";
 import requestLogger from "@/common/middleware/requestLogger";
@@ -41,9 +40,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(requestLogger);
 
 // Routes
-app.use("/health-check", healthCheckRouter);
-app.use("/users", userRouter);
-app.use("/stream", streamRouter);
+app.use("/api", router);
 app.get("/client", (req, res) => {
  res.set("Content-Type", "text/html");
  res.sendFile(path.join(__dirname, "public", "index.html"));

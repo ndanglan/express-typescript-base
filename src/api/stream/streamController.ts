@@ -205,16 +205,7 @@ class StreamController {
 
  public streamHLS: RequestHandler = async (_req: Request, res: Response) => {
   const { filename } = _req.params;
-  if (!filename) {
-   return handleServiceResponse(
-    ServiceResponse.failure(
-     "No filename provided",
-     null,
-     StatusCodes.BAD_REQUEST,
-    ),
-    res,
-   );
-  }
+
   const segmentRegex = /segment_(.+?)_\d{5}/;
   const match = filename.match(segmentRegex);
   const foldername = match ? match[1] : filename;
