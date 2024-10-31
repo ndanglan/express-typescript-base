@@ -11,6 +11,7 @@ import { ServiceResponse } from "@/common/models/serviceResponse";
 import { env } from "@/common/utils/envConfig";
 import { handleServiceResponse } from "@/common/utils/httpHandlers";
 import { logger } from "@/server";
+import { Worker } from "worker_threads";
 
 class StreamController {
  public streamMp4: RequestHandler = async (_req: Request, res: Response) => {
@@ -80,7 +81,7 @@ class StreamController {
    const inputFile = _req.file?.path ?? "";
 
    if (!inputFile) {
-    return handleServiceResponse(
+    handleServiceResponse(
      ServiceResponse.failure(
       "No video file uploaded",
       null,
@@ -106,78 +107,91 @@ class StreamController {
 
    const inputFileForward = inputFile.replace(/\\/g, "/");
    const outputDirForward = outputDir.replace(/\\/g, "/");
-   const command = "gst-launch-1.0";
 
-   const args = [
-    "--gst-debug",
-    "*:2",
-    "filesrc",
-    `location=${inputFileForward}`,
-    "!",
-    "decodebin",
-    "name=demux",
-    "demux.", // Video stream
-    "!",
-    "queue",
-    "!",
-    "videoconvert",
-    "!",
-    "videoscale",
-    "!",
-    "video/x-raw, width=1920, height=1080",
-    "!",
-    "x264enc",
-    "bitrate=8000",
-    "speed-preset=ultrafast",
-    "tune=zerolatency",
-    "!",
-    "h264parse",
-    "!",
-    "mpegtsmux",
-    "name=mux",
-    "!",
-    "hlssink",
-    `target-duration=${env.HLS_TARGET_DURATION}`,
-    `playlist-length=${env.HLS_PLAYLIST_LENGTH}`,
-    `max-files=${env.HLS_MAX_FILES}`,
-    `location=${outputDirForward}/segment_${originalFilename}_%05d.ts`, // Use a pattern for segment files
-    `playlist-location=${outputDirForward}/playlist.m3u8`, // Location for the HLS playlist
-    "demux.",
-    "!",
-    "queue",
-    "!",
-    "audioconvert",
-    "!",
-    "audioresample",
-    "!",
-    "voaacenc",
-    "!",
-    "aacparse",
-    "!",
-    "mux.",
-   ];
+   const worker = new Worker(
+    path.resolve(__dirname, "../../common/workers/convertHLS.js"),
+    {
+     workerData: { inputFileForward, outputDirForward, originalFilename },
+    },
+   );
 
-   // Ensure the output directory exists
+   let responseSent = false;
 
-   logger.info(`Running ${args.join(" ")}`);
+   worker.on("message", (message) => {
+    if (message.type === "log") {
+     logger.info(message.message);
+    }
+    if(message.type === undefined){
+      if (!responseSent) {
+       responseSent = true;
+       if (message.status) {
+        handleServiceResponse(
+         ServiceResponse.success(
+          "Video conversion completed successfully",
+          null,
+          StatusCodes.OK,
+         ),
+         res,
+        );
+       } else {
+        handleServiceResponse(
+         ServiceResponse.failure(
+          "Error occurred during video conversion.",
+          message.error,
+          StatusCodes.INTERNAL_SERVER_ERROR,
+         ),
+         res,
+        );
+       }
+      }
+      if (!responseSent) {
+       responseSent = true;
+       if (message.status) {
+        handleServiceResponse(
+         ServiceResponse.success(
+          "Video conversion completed successfully",
+          null,
+          StatusCodes.OK,
+         ),
+         res,
+        );
+       } else {
+        handleServiceResponse(
+         ServiceResponse.failure(
+          "Error occurred during video conversion.",
+          message.error,
+          StatusCodes.INTERNAL_SERVER_ERROR,
+         ),
+         res,
+        );
+       }
+      }
+    }
+   });
 
-   const gst = spawn(command, args);
-   gst.stderr.on("data", (data) => console.error(`GStreamer error: ${data}`));
-   gst.on("exit", (code, signal) => {
-    console.log(`GStreamer exited with code ${code}`);
-    if (code === 0) {
-     return handleServiceResponse(
-      ServiceResponse.success(
-       "Video conversion completed successfully",
-       null,
-       StatusCodes.OK,
-      ),
-      res,
-     );
-    } else {
-     return handleServiceResponse(
+   //  Error handling for the worker
+   worker.on("error", (error) => {
+    if (responseSent) return;
+    logger.error("Worker error:", JSON.stringify(error));
+    responseSent = true;
+    handleServiceResponse(
+     ServiceResponse.failure(
+      "Error processing video",
+      null,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+     ),
+     res,
+    );
+   });
+
+   worker.on("exit", (code) => {
+    if (responseSent) return;
+    responseSent = true;
+    if (code !== 0) {
+     logger.error(`Worker stopped with exit code ${code}`);
+     handleServiceResponse(
       ServiceResponse.failure(
-       "Error occurred during video conversion.",
+       "Worker exited unexpectedly",
        null,
        StatusCodes.INTERNAL_SERVER_ERROR,
       ),
@@ -185,14 +199,9 @@ class StreamController {
      );
     }
    });
-
-   // Handle cleanup on response close (if applicable)
-   res.on("close", () => {
-    gst.kill();
-   });
   } catch (error) {
-   logger.error("Error processing video:", error);
-   return handleServiceResponse(
+   logger.error("Error processing video:", JSON.stringify(error));
+   handleServiceResponse(
     ServiceResponse.failure(
      "Error processing video",
      null,

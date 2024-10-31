@@ -26,4 +26,11 @@ export const env = cleanEnv(process.env, {
  HLS_MAX_FILES: str({
   devDefault: testOnly("25"),
  }),
+ REDIS_PASSWORD: str({
+  devDefault: testOnly("REDIS_PASSWORD"),
+ }),
+ REDIS_SOCKET_HOST: str({
+  devDefault: testOnly("REDIS_SOCKET_HOST"),
+ }),
+ REDIS_SOCKET_PORT: num({ devDefault: testOnly(1000) }),
 });
