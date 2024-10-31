@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HLS Video Player</title>
+  <style>
+    /* Basic styling for the video player */
+    #video {
+      width: 100%;
+      max-width: 800px;
+      margin: auto;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>HLS Video Player</h1>
+  <video id="video" controls></video>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script defer>
+    // video-player.js
+    document.addEventListener('DOMContentLoaded', function () {
+      const video = document.getElementById('video');
+      const videoSrc = 'http://localhost:8080/api/stream/hls/saaaa'; // Adjust path if necessary
+
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(videoSrc);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+          video.play();
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // For Safari, directly set the video source
+        video.src = videoSrc;
+        video.addEventListener('loadedmetadata', function () {
+          video.play();
+        });
+      }
+    });
+  </script>
+</body>
+
+</html>
