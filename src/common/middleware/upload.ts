@@ -4,7 +4,7 @@ const configMulter = (dest: string) => {
  return multer({ dest });
 };
 
-const upload = configMulter("../../../../uploads/");
+const upload = configMulter("uploads/");
 
 const uploadMiddleware = upload.single("video");
 
